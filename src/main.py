@@ -9,6 +9,8 @@ from flask_cors import CORS
 from utils import APIException, generate_sitemap
 from admin import setup_admin
 from models import db, User
+from sms import send
+from datastructures import Queue
 #from models import Person
 
 app = Flask(__name__)
@@ -20,6 +22,8 @@ db.init_app(app)
 CORS(app)
 setup_admin(app)
 
+queue=Queue()
+
 # Handle/serialize errors like a JSON object
 @app.errorhandler(APIException)
 def handle_invalid_usage(error):
@@ -30,11 +34,35 @@ def handle_invalid_usage(error):
 def sitemap():
     return generate_sitemap(app)
 
-@app.route('/user', methods=['GET'])
-def handle_hello():
-
+@app.route('/users', methods=['GET'])
+def get_all_users():
     response_body = {
-        "msg": "Hello, this is your GET /user response "
+        "msg": "Hello, this is all of the users",
+        "resp": queue.get_queue()
+    }
+
+    return jsonify(response_body), 200
+
+@app.route('/user', methods=['GET'])
+def get_one_user():
+    guest = queue.dequeue()
+    #Extract phone # from guest and call the send method from sms with that phone #
+    #Once the user sends the text, return a message back to the host. Guest has been texted as such #
+    send(body='', to=guest['phone'])
+    response_body = {
+        "msg": "Hello, this is the phone number and user that the text message was sent!",
+        "resp": guest
+    }
+
+    return jsonify(response_body), 200
+
+@app.route('/users', methods=['POST'])
+def add_new_user():
+    item = request.get_json() #works!
+    queue.enqueue(item)
+    response_body = {
+        "msg": "Hello, this is the new list of users! ",
+        "resp": queue.get_queue()
     }
 
     return jsonify(response_body), 200
